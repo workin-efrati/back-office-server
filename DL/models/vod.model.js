@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { models } from "mongoose";
 
 const vodSchema = new mongoose.Schema(
   {
@@ -9,6 +9,5 @@ const vodSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-const vodModel = mongoose.model("vod", vodSchema);
+const vodModel = models["vod"] || mongoose.model("vod", vodSchema);
 export default vodModel;

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { models } from "mongoose";
 
 const TagsSchema = new mongoose.Schema(
   {
@@ -13,6 +13,6 @@ const TagsSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+const tagsModel = models["tag"] || mongoose.model("tag", TagsSchema);
 
-const tagsModel = mongoose.model("tag", TagsSchema);
 export default tagsModel;
