@@ -16,7 +16,7 @@ async function createTag(tag, fatherId) {
     name: tag.name,
     parent: fatherId || null,
   });
-  if (tag.children.length > 0) {
+  if (tag.children?.length > 0) {
     const childPromises = tag.children.map(async (child) => {
       return await createTag(child, father._id);
     });
