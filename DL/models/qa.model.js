@@ -1,4 +1,4 @@
-import mongoose, { models } from "mongoose";
+import mongoose from "mongoose";
 
 const QASchema = new mongoose.Schema(
   {
@@ -12,5 +12,5 @@ const QASchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-const QAModel = models["qa"] || mongoose.model("qa", QASchema);
+const QAModel = mongoose.models["qa"] || mongoose.model("qa", QASchema);
 export default QAModel;
