@@ -2,10 +2,10 @@ import mongoose, { models } from "mongoose";
 
 const vodSchema = new mongoose.Schema(
   {
-    title: { type: String },
+    title: { type: String,required:true },
     description: { type: String },
-    linkToVod: { type: String },
-    image: { type: String },
+    link: { type: String,required:true },
+    img: { type: String },
   },
   { timestamps: true }
 );
