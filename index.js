@@ -6,7 +6,7 @@ import genericQueryRouter from "./Routes/genericQuery.router.js";
 import imagesRouter from './Routes/images.router.js';
 
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3355;
 
 const app = express();
 
@@ -18,7 +18,7 @@ app.use("/api/genericQuery", genericQueryRouter);
 
 
 import playlistRouter from './Routes/playlist.router.js';
-app.use('/playlist', playlistRouter)
+app.use('/api/playlist', playlistRouter)
 
 app.get('/', (req, res) => {
    res.send('Hello, world!');
