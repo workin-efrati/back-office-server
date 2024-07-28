@@ -1,8 +1,10 @@
 // const express = require('express'),
 import { Router } from "express";
 import { genericQuestionsAndAnswers } from "../BL/service/genericQuery.services.js";
+
 const genericQueryRouter = Router();
-export default genericQueryRouter.post("/", async (req, res) => {
+
+genericQueryRouter.post("/", async (req, res) => {
   console.log(req.body);
   try {
     console.log("------------------- ROUTER IN  ----------------------");
@@ -14,4 +16,4 @@ export default genericQueryRouter.post("/", async (req, res) => {
   }
 });
 
-// export default genericQueryRouter;
+export default genericQueryRouter;
