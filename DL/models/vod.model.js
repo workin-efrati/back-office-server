@@ -1,4 +1,4 @@
-import mongoose, { models } from "mongoose";
+import mongoose from "mongoose";
 
 const vodSchema = new mongoose.Schema(
   {
@@ -6,8 +6,9 @@ const vodSchema = new mongoose.Schema(
     description: { type: String },
     link: { type: String,required:true },
     img: { type: String },
+    isActive:{type:Boolean, default:true}
   },
   { timestamps: true }
 );
-const vodModel = models["vod"] || mongoose.model("vod", vodSchema);
+const vodModel = mongoose.models["vod"] || mongoose.model("vod", vodSchema);
 export default vodModel;

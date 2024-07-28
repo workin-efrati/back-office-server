@@ -1,4 +1,4 @@
-import mongoose, { models } from "mongoose";
+import mongoose from "mongoose";
 
 const TagsSchema = new mongoose.Schema(
   {
@@ -8,11 +8,11 @@ const TagsSchema = new mongoose.Schema(
     parent: { type: mongoose.Schema.Types.ObjectId, ref: "tag" },
     topicImages: [String],
     popular: Boolean,
-    childrenTags: [{ type: mongoose.Schema.Types.ObjectId, ref: "tag" }],
+    children: [{ type: mongoose.Schema.Types.ObjectId, ref: "tag" }],
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
-const tagsModel = models["tag"] || mongoose.model("tag", TagsSchema);
+const tagsModel = mongoose.models["tag"] || mongoose.model("tag", TagsSchema);
 
 export default tagsModel;
