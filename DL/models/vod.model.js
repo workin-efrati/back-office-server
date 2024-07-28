@@ -6,6 +6,7 @@ const vodSchema = new mongoose.Schema(
     description: { type: String },
     link: { type: String,required:true },
     img: { type: String },
+    isActive:{type:Boolean, default:true}
   },
   { timestamps: true }
 );
