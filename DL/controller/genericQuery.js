@@ -1,46 +1,8 @@
-import tagsModel from "./DL/models/tags.model.js";
 import { ObjectId } from "mongodb";
-/**
- * פונקציה לחיפוש עם פילטרים ומיון במודל Mongoose.
- *
- * @param {Object} params - פרמטרים לפונקציה.
- * @param {Object} params.modelRead - המודל של Mongoose לחיפוש.
- * @param {Object} params.filters - פילטרים כלליים לחיפוש.
- * @param {Object} [params.regFilter] - פילטרים עם ביטויים רגולריים (שדה `searchType`, `searchValues`).
- * @param {string} [params.queryFilterType="$and"] - סוג השאילתא ($and או $or).
- * @param {Object} [params.includeFilter] - פילטרים עם ערכים שונים (שדה `searchType`, `searchValues`).
- * @param {Array} [params.selector] - שדות לבחירה או הסרה מהתוצאות.
- * @param {Array} [params.sorter] - קריטריונים למיון התוצאות.
- * @param {Object} [params.pages] - פרמטרים לדפי תוצאות (שדות `pageLoc` ו-`pageAmount`).
- * @param {Array} [params.populate] - קשרים לפופולציה עם שדות לבחירה.
- *
- * @example
- * const objToSearch = {
- *   modelRead: tagsModel,
- *   filters: { isActive: false },
- *   includeFilter: {
- *     searchType: "$and",
- *     searchValues: [
- *       { field: "_id", values: ["669e258bffbe0a8191e0877b"], searchType: "$or" },
- *       { field: "name", values: ["שבת"], searchType: "$or" },
- *     ],
- *   },
- *   regFilter: {
- *     searchType: "$and",
- *     searchValues: [
- *       { fields: ["name"], value: "שבת ו", searchType: "$or" },
- *     ],
- *   },
- *   selector: "-topicImages -isActive",
- *   sorter: [["name", -1]],
- *   pages: { pageLoc: 0, pageAmount: 4 },
- *   populate: [{ name: "parent", selectors: "name" }],
- * };
- * genericFilterWithPage(objToSearch);
- */
+
 async function genericFilterWithPagination({
   modelRead,
-  filters,
+  filters = { isActive: true },
   regFilter,
   queryFilterType = "$and",
   includeFilter,
@@ -49,21 +11,9 @@ async function genericFilterWithPagination({
   pages,
   populate,
 }) {
-  let queryFilter = { [queryFilterType]: [filters] };
-  if (regFilter?.searchValues.length > 0) {
-    const regexFilters = regFilter.searchValues.map((searchValue) => {
-      const regex = new RegExp(searchValue.value, "i");
-      return {
-        [searchValue.searchType]: searchValue.fields.map((field) => ({
-          [field]: { $regex: regex },
-        })),
-      };
-    });
-    const regSearch = {
-      [regFilter.searchType]: regexFilters,
-    };
-    queryFilter[queryFilterType].push(regSearch);
-  }
+  if (!modelRead) throw new Error("no model found ");
+
+  let matchStage = { $match: { [queryFilterType]: [filters] } };
   if (includeFilter?.searchValues.length > 0) {
     const inFilters = includeFilter.searchValues.map((searchValue) => ({
       [searchValue.field]: {
@@ -73,52 +23,77 @@ async function genericFilterWithPagination({
             : searchValue.values.map((v) => ObjectId.createFromHexString(v)),
       },
     }));
-    const inFilter = {
-      [includeFilter.searchType]: inFilters,
-    };
-    queryFilter[queryFilterType].push(inFilter);
+    matchStage.$match[queryFilterType].push({ [includeFilter.searchType]: inFilters });
   }
-  let query = modelRead.find(queryFilter);
-  if (selector?.length > 0) query = query.select(selector);
-  if (sorter?.length > 0) query.sort(sorter);
 
-  const newData = query.clone();
-  const arrLength = await newData.countDocuments();
+  let pipeline = [matchStage];
 
-  if (pages && pages.pageLoc !== undefined) {
-    query.skip(pages.pageLoc * pages.pageAmount).limit(pages.pageAmount);
+  if (regFilter?.searchValues.length > 0) {
+    const regexConditions = regFilter.searchValues.map((searchValue) => {
+      const words = searchValue.value.split(' ');
+      return words.map((word) => ({
+        $cond: {
+          if: { $regexMatch: { input: `$${searchValue.fields[0]}`, regex: new RegExp(word, "i") } },
+          then: 1,
+          else: 0
+        }
+      }));
+    }).flat();
+
+    pipeline.push({
+      $project: {
+        matchCount: { $sum: regexConditions },
+        document: "$$ROOT"
+      }
+    });
+
+    const wordsCount = regFilter.searchValues.reduce((sum, searchValue) => sum + searchValue.value.split(' ').length, 0);
+    const requiredMatches = Math.ceil(wordsCount * 0.75);
+    pipeline.push({ $match: { matchCount: { $gte: requiredMatches } } });
+    pipeline.push({ $replaceRoot: { newRoot: "$document" } });
   }
+
+
+  const countPipeline = [...pipeline, { $count: "totalCount" }];
+  const countResult = await modelRead.aggregate(countPipeline).exec();
+  const totalCount = countResult.length > 0 ? countResult[0].totalCount : 0;
+
+
+  if (selector?.length > 0) {
+    pipeline.push({ $project: selector.reduce((acc, field) => {
+      acc[field.startsWith('-') ? field.slice(1) : field] = field.startsWith('-') ? 0 : 1;
+      return acc;
+    }, {}) });
+  }
+
+  if (sorter?.length > 0) {
+    pipeline.push({ $sort: sorter.reduce((acc, [field, order]) => {
+      acc[field] = order;
+      return acc;
+    }, {}) });
+  }
+
+  if (pages && pages.pageLocation !== undefined) {
+    pipeline.push({ $skip: pages.pageLocation * pages.pageLength });
+    pipeline.push({ $limit: pages.pageLength });
+  }
+
   if (populate?.length > 0) {
     populate.forEach((pop) => {
-      query.populate(pop.name, pop.selectors);
+      pipeline.push({ $lookup: {
+        from: pop.name,
+        localField: pop.name,
+        foreignField: "_id",
+        as: pop.name
+      }});
+      pipeline.push({ $unwind: `$${pop.name}` });
+      pipeline.push({ $project: { [pop.name]: { $arrayElemAt: [`$${pop.name}`, 0] } } });
     });
   }
-  const res = await query.exec();
-  console.log(res, arrLength);
-  return { res, arrLength };
-}
-export default genericFilterWithPagination;
 
-//example for query
-const objToSearch = {
-  modelRead: tagsModel,
-  filters: { isActive: true },
-  includeFilter: {
-    searchType: "$or",
-    searchValues: [
-      {
-        field: "_id",
-        values: ["669e258bffbe0a8191e0877b", "66a0bc2cdc4f1cc14e6c3a3e"],
-        searchType: "$or",
-      },
-    ],
-  },
-  regFilter: {
-    searchType: "$or",
-    searchValues: [{ fields: ["name"], value: "שבת ו", searchType: "$or" }],
-  },
-  selector: "-topicImages -isActive -childrenTags -parent",
-  sorter: [["name", -1]],
-  pages: { pageLoc: 0, pageAmount: 4 },
-  populate: [{ selectors: "name", name: "parent" }],
-};
+  const res = await modelRead.aggregate(pipeline).exec();
+console.log(res.length);
+  return { res, totalCount };
+}
+
+export default genericFilterWithPagination;
