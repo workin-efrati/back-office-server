@@ -8,6 +8,7 @@ genericQueryRouter.post("/", async (req, res) => {
   try {
     console.log("------------------- ROUTER IN  ----------------------");
     const result = await genericQuestionsAndAnswers(req.body);
+    // console.log(result);
     res.send(result);
   } catch (err) {
     res.status(400).send(err.msg || err.message || "wrong");
