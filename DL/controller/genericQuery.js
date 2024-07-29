@@ -18,7 +18,7 @@ async function genericFilterWithPagination({
     const inFilters = includeFilter.searchValues.map((searchValue) => ({
       [searchValue.field]: {
         $in:
-          searchValue.field !== "_id"
+          searchValue.type !== "_id"
             ? searchValue.values
             : searchValue.values.map((v) => ObjectId.createFromHexString(v)),
       },
@@ -92,7 +92,6 @@ async function genericFilterWithPagination({
   }
 
   const res = await modelRead.aggregate(pipeline).exec();
-console.log(res.length);
   return { res, totalCount };
 }
 
