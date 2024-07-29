@@ -6,7 +6,7 @@ async function genericFilterWithPagination({
   regFilter,
   queryFilterType = "$and",
   includeFilter,
-  selector,
+  selector, // array of selectors
   sorter,
   pages,
   populate,
@@ -60,17 +60,21 @@ async function genericFilterWithPagination({
 
 
   if (selector?.length > 0) {
-    pipeline.push({ $project: selector.reduce((acc, field) => {
-      acc[field.startsWith('-') ? field.slice(1) : field] = field.startsWith('-') ? 0 : 1;
-      return acc;
-    }, {}) });
+    pipeline.push({
+      $project: selector.reduce((acc, field) => {
+        acc[field.startsWith('-') ? field.slice(1) : field] = field.startsWith('-') ? 0 : 1;
+        return acc;
+      }, {})
+    });
   }
 
   if (sorter?.length > 0) {
-    pipeline.push({ $sort: sorter.reduce((acc, [field, order]) => {
-      acc[field] = order;
-      return acc;
-    }, {}) });
+    pipeline.push({
+      $sort: sorter.reduce((acc, [field, order]) => {
+        acc[field] = order;
+        return acc;
+      }, {})
+    });
   }
 
   if (pages && pages.pageLocation !== undefined) {
@@ -78,16 +82,29 @@ async function genericFilterWithPagination({
     pipeline.push({ $limit: pages.pageLength });
   }
 
+
   if (populate?.length > 0) {
     populate.forEach((pop) => {
-      pipeline.push({ $lookup: {
-        from: pop.name,
-        localField: pop.name,
-        foreignField: "_id",
-        as: pop.name
-      }});
-      pipeline.push({ $unwind: `$${pop.name}` });
-      pipeline.push({ $project: { [pop.name]: { $arrayElemAt: [`$${pop.name}`, 0] } } });
+      pipeline.push({
+        $lookup: {
+          from: pop.name,
+          let: { localIds: `$${pop.localField || pop.name}` },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$_id", "$$localIds"]
+                }
+              }
+            },
+            {
+              $project: pop.selector || {} // Apply selector if provided
+            }
+          ],
+          as: pop.name
+        }
+      });
+      // pipeline.push({ $unwind: { path: `$${pop.name}`, preserveNullAndEmptyArrays: true } });
     });
   }
 
