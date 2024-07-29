@@ -7,8 +7,7 @@ const modelsNames = {
   tags: tagsModel,
 };
 export async function genericQuestionsAndAnswers(userQuery) {
-  const { modelName } = userQuery;
-  console.log(userQuery);
+  const { modelName, includeFilter } = userQuery;
   try {
     userQuery.modelRead = modelsNames[modelName];
     return await genericFilterWithPagination(userQuery);
