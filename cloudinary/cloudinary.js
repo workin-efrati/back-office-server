@@ -43,7 +43,7 @@ const saveImgToCloud = async (imgOrBuffer, folderName = 'images') => {
     });
     return image;
   } catch (error) {
-    console.error("Error processing the image:", error);
+    console.error("Error processing the image:", error.message);
     return null;
   }
 };
